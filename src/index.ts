@@ -13,10 +13,13 @@ const domain = process.env.HH_DOMAIN_NAME || '';
 const name = process.env.HH_TOKEN_NAME || '';
 const value = process.env.HH_TOKEN_VALUE || '';
 
-await page.setCookie({domain, name, value})
+await page.setCookie({domain, name, value});
 
 // Navigate the page to a URL.
 await page.goto('https://hh.ru/');
 
-await browser.close();
+await page.focus('#a11y-search-input');
+await page.keyboard.type('Frontend');
+
+// await browser.close();
 
