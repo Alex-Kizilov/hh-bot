@@ -20,6 +20,7 @@ dotenv.config();
 // Launch the browser and open a new blank page
 const browser = await puppeteer.launch({devtools: true, defaultViewport: null}); //Добавил хуйню чтобы на весь экран было
 const page = await browser.newPage();
+await page.setViewport({ width: 1920, height: 1080})
 
 const domain = process.env.HH_DOMAIN_NAME || '';
 const name = process.env.HH_TOKEN_NAME || '';
@@ -30,11 +31,19 @@ await page.setCookie({domain, name, value});
 // Navigate the page to a URL.
 await page.goto('https://hh.ru/', {timeout: 0});
 
+console.log('Успешный переход');
+
+await page.waitForSelector('input[id=a11y-search-input]');
 await page.focus('input[id=a11y-search-input]');
 await page.keyboard.type('Frontend');
 await page.keyboard.press('Enter')
 
-await page.goto(removeAreaParam(page.url()));
+console.log('данные введены');
+
+console.log(removeAreaParam(page.url()));
+
+await page.waitForNavigation();
+await page.goto(removeAreaParam(page.url()), {timeout: 0});
 
 // await browser.close();
 
