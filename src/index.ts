@@ -47,11 +47,25 @@ await page.goto(removeAreaParam(page.url()), {timeout: 0});
 
 await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 
-const responseButtons = await page.evaluate(() => {
-    const buttons = Array.from(document.querySelectorAll('a[data-qa="vacancy-serp__vacancy_response"]'));
-    return buttons;
-});
-console.log(responseButtons);
+const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
+
+for (const element of elements) {
+    const box = await element.boundingBox();
+    if (box) {
+        await element.evaluate(el => el.scrollIntoView());
+        await element.click();
+    } else {
+        console.log('Элемент не видим и не может быть кликнут');
+    }
+}
+
+// все data-qa
+// если переходим на страницу с ответами на вопросы - employer-asking-for-test
+// модалка с вакухой из другой страны - relocation-warning-confirm
+// модалка с сопроводительным:
+// textarea - vacancy-response-popup-form-letter-input
+// кнопка  - vacancy-response-submit-popup
+
 
 // await browser.close();
 
