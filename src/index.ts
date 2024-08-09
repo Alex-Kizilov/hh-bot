@@ -20,6 +20,7 @@ await page.goto('https://hh.ru/');
 
 await page.focus('#a11y-search-input');
 await page.keyboard.type('Frontend');
+await page.keyboard.press('Enter')
 
 // await browser.close();
 
