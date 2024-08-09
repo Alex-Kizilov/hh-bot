@@ -45,5 +45,13 @@ console.log(removeAreaParam(page.url()));
 await page.waitForNavigation();
 await page.goto(removeAreaParam(page.url()), {timeout: 0});
 
+await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
+
+const responseButtons = await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll('a[data-qa="vacancy-serp__vacancy_response"]'));
+    return buttons;
+});
+console.log(responseButtons);
+
 // await browser.close();
 
