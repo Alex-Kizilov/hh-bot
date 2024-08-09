@@ -2,10 +2,12 @@
   "name": "hh-bot",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.js",
+  "type": "module",
+  "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "start:dev": "tsc && node dist/index.js"
   },
   "keywords": [],
   "author": "",
