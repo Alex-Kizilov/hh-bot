@@ -110,9 +110,7 @@ while (true) {
                     logger.info(`Обнаружена страница с тестом. Возвращаемся назад и перезагружаем страницу`);
                     await page.goBack({ timeout: 0, waitUntil: 'networkidle2' });
 
-                    if (pageNumber !== 0) {
-                        pageNumber--; // Сбрасываем счетчик страницы, чтобы остаться на той же странице
-                    }
+                    pageNumber--; // Сбрасываем счетчик страницы, чтобы остаться на той же странице
 
                     await page.goto(addPageParam(removeAreaParam(page.url())), { timeout: 0, waitUntil: 'networkidle2' });
 
