@@ -62,6 +62,14 @@ await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 const processedVacancies: Set<string> = new Set();
 
 while (true) {
+    // Проверка на наличие ошибок
+    const errorNotification = await page.$('div[data-qa="bloko-notification"].bloko-notification_error');
+    if (errorNotification) {
+        logger.error('Обнаружена ошибка: диалоговое окно с атрибутом data-qa="bloko-notification" и классом bloko-notification_error');
+        await browser.close();
+        break;
+    }
+
     const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
 
     if (elements.length === 0) {
@@ -111,7 +119,7 @@ while (true) {
                     await page.goBack({ timeout: 0, waitUntil: 'networkidle2' });
 
                     await new Promise(r => setTimeout(r, 1000));
-                    
+
                     pageNumber--; // Сбрасываем счетчик страницы, чтобы остаться на той же странице
 
                     await page.goto(addPageParam(removeAreaParam(page.url())), { timeout: 0, waitUntil: 'networkidle2' });
@@ -135,4 +143,4 @@ while (true) {
     await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 }
 
-// await browser.close();
+await browser.close();
