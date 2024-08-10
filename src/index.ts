@@ -48,50 +48,71 @@ await page.goto(removeAreaParam(page.url()), {timeout: 0});
 
 await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 
-let elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
+const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
 
-for (let i = 0; i < elements.length; i++) {
-    const element = elements[i];
-    const box = await element.boundingBox();
-    if (box) {
-        await element.evaluate(el => el.scrollIntoView());
+// Сохраняем список обработанных вакансий
+const processedVacancies: Set<string> = new Set();
 
-        // Задержка вместо waitForTimeout
-        await new Promise(r => setTimeout(r, 1000));
+while (true) {
+    const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
 
-        await element.click();
+    for (let i = 0; i < elements.length; i++) {
+        const element = elements[i];
+        const box = await element.boundingBox();
 
-        // Задержка для обработки модальных окон или перехода на новую страницу
-        await new Promise(r => setTimeout(r, 1000));
+        // Проверка, что элемент видим и не был обработан ранее
+        if (box) {
+            const vacancyUrl = await element.evaluate(el => el.getAttribute('href'));
 
-        // Проверка на открытие модального окна с сопроводительным письмом
-        const coverLetterModal = await page.$('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
-        if (coverLetterModal) {
-            await coverLetterModal.type(coverLetterText);
-            const submitButton = await page.$('button[data-qa="vacancy-response-submit-popup"]');
-            if (submitButton) {
-                await submitButton.click();
+            if (vacancyUrl && !processedVacancies.has(vacancyUrl)) {
+                await element.evaluate(el => el.scrollIntoView());
+
+                // Задержка
+                await new Promise(r => setTimeout(r, 1000));
+
+                await element.click();
+
+                // Задержка для обработки модальных окон или перехода на новую страницу
+                await new Promise(r => setTimeout(r, 1000));
+
+                // Проверка на открытие модального окна с сопроводительным письмом
+                const coverLetterModal = await page.$('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
+                if (coverLetterModal) {
+                    await coverLetterModal.type(coverLetterText);
+                    const submitButton = await page.$('button[data-qa="vacancy-response-submit-popup"]');
+                    if (submitButton) {
+                        await submitButton.click();
+                    }
+                }
+
+                // Проверка на появление окна о релокации
+                const relocationModal = await page.$('button[data-qa="relocation-warning-confirm"]');
+                if (relocationModal) {
+                    await relocationModal.click();
+                }
+
+                // Проверка на переход на страницу с тестовым заданием
+                const testPage = await page.$('p[data-qa="employer-asking-for-test"]');
+                if (testPage) {
+                    console.log('Обнаружена страница с тестовым заданием. Возвращаемся назад.');
+                    await page.goBack(); // Возвращаемся обратно на страницу с вакансиями
+                    processedVacancies.add(vacancyUrl); // Помечаем вакансию как обработанную
+                    break; // Перезапускаем цикл, чтобы обновить список вакансий
+                }
+
+                // Помечаем вакансию как обработанную
+                processedVacancies.add(vacancyUrl);
+
+                // Небольшая задержка перед переходом к следующему элементу
+                await new Promise(r => setTimeout(r, 500));
             }
+        } else {
+            console.log('Элемент не видим и не может быть кликнут');
         }
-
-        // Проверка на появление окна о релокации
-        const relocationModal = await page.$('button[data-qa="relocation-warning-confirm"]');
-        if (relocationModal) {
-            await relocationModal.click();
-        }
-
-        // Проверка на переход на страницу с тестовым заданием
-        const testPage = await page.$('p[data-qa="employer-asking-for-test"]');
-        if (testPage) {
-            await page.goBack(); // Возвращаемся обратно на страницу с вакансиями
-        }
-
-        // Обновляем элементы на странице после возврата и продолжаем с текущего индекса
-        elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
-        i = i + 1; // Переходим к следующему элементу
-    } else {
-        console.log('Элемент не видим и не может быть кликнут');
     }
+
+    // Обновляем страницу после возврата
+    await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 }
 
 // все data-qa
@@ -100,6 +121,8 @@ for (let i = 0; i < elements.length; i++) {
 // модалка с сопроводительным:
 // textarea - vacancy-response-popup-form-letter-input
 // кнопка  - vacancy-response-submit-popup
+
+
 
 
 // await browser.close();
