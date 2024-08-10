@@ -67,7 +67,7 @@ for (let i = 0; i < elements.length; i++) {
         // Проверка на открытие модального окна с сопроводительным письмом
         const coverLetterModal = await page.$('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
         if (coverLetterModal) {
-            await coverLetterModal.type('Ваш текст сопроводительного письма');
+            await coverLetterModal.type(coverLetterText);
             const submitButton = await page.$('button[data-qa="vacancy-response-submit-popup"]');
             if (submitButton) {
                 await submitButton.click();
