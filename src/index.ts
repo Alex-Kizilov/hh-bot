@@ -1,5 +1,21 @@
 import puppeteer from 'puppeteer';
 import dotenv from 'dotenv';
+import winston from 'winston';
+
+// Настройка Winston
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.printf(({ timestamp, level, message }) => {
+            return `${timestamp} [${level}]: ${message}`;
+        })
+    ),
+    transports: [
+        new winston.transports.Console(), // Логирование в консоль
+        new winston.transports.File({ filename: 'app.log' }) // Логирование в файл
+    ]
+});
 
 function removeAreaParam(url: string): string {
     const parsedUrl = new URL(url);
@@ -32,16 +48,10 @@ await page.setCookie({ domain, name, value });
 // Navigate the page to a URL.
 await page.goto('https://hh.ru/', { timeout: 0 });
 
-console.log('Успешный переход');
-
 await page.waitForSelector('input[id=a11y-search-input]');
 await page.focus('input[id=a11y-search-input]');
 await page.keyboard.type('Frontend');
 await page.keyboard.press('Enter');
-
-console.log('Данные введены');
-
-console.log(removeAreaParam(page.url()));
 
 await page.waitForNavigation({ timeout: 0 });
 await page.goto(removeAreaParam(page.url()), { timeout: 0 });
@@ -55,7 +65,7 @@ while (true) {
     const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
 
     if (elements.length === 0) {
-        console.log('Нет доступных вакансий на этой странице.');
+        logger.info('Нет вакансий на текущей странице, переход к следующей');
         await page.goto(addPageParam(page.url()), { timeout: 0, waitUntil: 'networkidle2' });
         await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
         continue;
@@ -69,6 +79,8 @@ while (true) {
             const vacancyUrl = await element.evaluate(el => el.getAttribute('href'));
 
             if (vacancyUrl && !processedVacancies.has(vacancyUrl)) {
+                logger.info(`Обрабатывается вакансия: ${vacancyUrl}`);
+
                 await element.evaluate(el => el.scrollIntoView());
 
                 await new Promise(r => setTimeout(r, 1000));
@@ -83,21 +95,25 @@ while (true) {
                     const submitButton = await page.$('button[data-qa="vacancy-response-submit-popup"]');
                     if (submitButton) {
                         await submitButton.click();
+                        logger.info(`Отправлено сопроводительное письмо на вакансию: ${vacancyUrl}`);
                     }
                 }
 
                 const relocationModal = await page.$('button[data-qa="relocation-warning-confirm"]');
                 if (relocationModal) {
                     await relocationModal.click();
+                    logger.info(`Подтверждено предупреждение о переезде на вакансии: ${vacancyUrl}`);
                 }
 
                 const testPage = await page.$('p[data-qa="employer-asking-for-test"]');
                 if (testPage) {
-                    console.log('Обнаружена страница с тестовым заданием. Возвращаемся назад.');
+                    logger.info(`Обнаружена страница с тестом. Возвращаемся назад и перезагружаем страницу`);
                     await page.goBack({ timeout: 0, waitUntil: 'networkidle2' });
 
-                    // Перезагружаем страницу с начальной пагинацией
-                    pageNumber--; // Сбрасываем счетчик страницы, чтобы остаться на той же странице
+                    if (pageNumber !== 0) {
+                        pageNumber--; // Сбрасываем счетчик страницы, чтобы остаться на той же странице
+                    }
+
                     await page.goto(addPageParam(removeAreaParam(page.url())), { timeout: 0, waitUntil: 'networkidle2' });
 
                     processedVacancies.add(vacancyUrl);
@@ -109,11 +125,14 @@ while (true) {
                 await new Promise(r => setTimeout(r, 500));
             }
         } else {
-            console.log('Элемент не видим и не может быть кликнут');
+            logger.warn('Элемент не видим и не может быть кликнут');
         }
     }
 
     pageNumber++; // Переход к следующей странице
+    logger.info(`Переход к странице ${pageNumber}`);
     await page.goto(addPageParam(page.url()), { timeout: 0, waitUntil: 'networkidle2' });
     await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 }
+
+// await browser.close();
