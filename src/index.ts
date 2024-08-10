@@ -107,13 +107,24 @@ while (true) {
 
                 const testPage = await page.$('p[data-qa="employer-asking-for-test"]');
                 if (testPage) {
-                    logger.info(`Обнаружена страница с тестом. Возвращаемся назад и перезагружаем страницу`);
+                    logger.info('Обнаружена страница с тестом. Возвращаемся назад и перезагружаем страницу');
+
+                    // Возвращаемся на предыдущую страницу
                     await page.goBack({ timeout: 0, waitUntil: 'networkidle2' });
 
-                    pageNumber--; // Сбрасываем счетчик страницы, чтобы остаться на той же странице
+                    // Ожидаем завершения навигации, чтобы быть уверенным, что мы вернулись на предыдущую страницу
+                    await page.waitForNavigation({ waitUntil: 'networkidle2' });
 
+                    // Сбрасываем счетчик страницы, чтобы остаться на той же странице
+                    pageNumber--;
+
+                    // Перезагружаем страницу с начальной пагинацией
                     await page.goto(addPageParam(removeAreaParam(page.url())), { timeout: 0, waitUntil: 'networkidle2' });
 
+                    // Ожидаем завершения навигации, чтобы быть уверенным, что страница загружена
+                    await page.waitForNavigation({ waitUntil: 'networkidle2' });
+
+                    // Добавляем вакансию в обработанные
                     processedVacancies.add(vacancyUrl);
                     break;
                 }
