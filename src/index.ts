@@ -45,9 +45,7 @@ const coverLetterText = process.env.COVER_LETTER_TEXT || '.';
 
 await page.setCookie({ domain, name, value });
 
-// Navigate the page to a URL.
 await page.goto('https://hh.ru/', { timeout: 0 });
-
 await page.waitForSelector('input[id=a11y-search-input]');
 await page.focus('input[id=a11y-search-input]');
 await page.keyboard.type('Frontend');
@@ -55,20 +53,24 @@ await page.keyboard.press('Enter');
 
 await page.waitForNavigation({ timeout: 0 });
 await page.goto(removeAreaParam(page.url()), { timeout: 0 });
-
 await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 
 // Сохраняем список обработанных вакансий
 const processedVacancies: Set<string> = new Set();
 
 while (true) {
-    // Проверка на наличие ошибок
-    const errorNotification = await page.$('div[data-qa="bloko-notification"].bloko-notification_error');
-    if (errorNotification) {
-        logger.error('Обнаружена ошибка: диалоговое окно с атрибутом data-qa="bloko-notification" и классом bloko-notification_error');
-        await browser.close();
-        break;
-    }
+    // Проверка на наличие ошибки
+    const checkForError = async () => {
+        const errorNotification = await page.$('div[data-qa="bloko-notification"].bloko-notification_error');
+        if (errorNotification) {
+            logger.error('Обнаружена ошибка: диалоговое окно с атрибутом data-qa="bloko-notification" и классом bloko-notification_error');
+            await browser.close();
+            process.exit(1);
+        }
+    };
+
+    // Проверьте наличие ошибки перед началом обработки вакансий
+    await checkForError();
 
     const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
 
@@ -76,10 +78,14 @@ while (true) {
         logger.info('Нет вакансий на текущей странице, переход к следующей');
         await page.goto(addPageParam(page.url()), { timeout: 0, waitUntil: 'networkidle2' });
         await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
+        await checkForError();
         continue;
     }
 
     for (let i = 0; i < elements.length; i++) {
+        // Проверьте наличие ошибки перед каждым кликом
+        await checkForError();
+
         const element = elements[i];
         const box = await element.boundingBox();
 
@@ -125,6 +131,7 @@ while (true) {
                     await page.goto(addPageParam(removeAreaParam(page.url())), { timeout: 0, waitUntil: 'networkidle2' });
 
                     processedVacancies.add(vacancyUrl);
+                    await checkForError();
                     break;
                 }
 
@@ -141,6 +148,8 @@ while (true) {
     logger.info(`Переход к странице ${pageNumber}`);
     await page.goto(addPageParam(page.url()), { timeout: 0, waitUntil: 'networkidle2' });
     await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
+    await checkForError();
 }
 
+// Закрытие браузера вне цикла
 await browser.close();
