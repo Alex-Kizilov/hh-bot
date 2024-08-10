@@ -95,7 +95,7 @@ while (true) {
                 const testPage = await page.$('p[data-qa="employer-asking-for-test"]');
                 if (testPage) {
                     console.log('Обнаружена страница с тестовым заданием. Возвращаемся назад.');
-                    await page.goBack({timeout: 0}); // Возвращаемся обратно на страницу с вакансиями
+                    await page.goBack({timeout: 0, waitUntil: 'networkidle2'}); // Возвращаемся обратно на страницу с вакансиями
                     processedVacancies.add(vacancyUrl); // Помечаем вакансию как обработанную
                     break; // Перезапускаем цикл, чтобы обновить список вакансий
                 }
