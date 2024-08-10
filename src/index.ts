@@ -59,15 +59,13 @@ await page.goto(removeAreaParam(page.url()), {timeout: 0});
 
 await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 
-const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
-
 // Сохраняем список обработанных вакансий
 const processedVacancies: Set<string> = new Set();
 
 while (true) {
     const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
 
-    for (let i = 48; i < elements.length; i++) {
+    for (let i = 0; i < elements.length; i++) {
         const element = elements[i];
         const box = await element.boundingBox();
 
@@ -122,7 +120,7 @@ while (true) {
         }
     }
 
-    await page.goto(addPageParam(page.url()), {timeout: 0})
+    await page.goto(addPageParam(page.url()), {timeout: 0, waitUntil: 'networkidle2'})
     // Обновляем страницу после возврата
     await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 }
