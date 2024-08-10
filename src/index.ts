@@ -25,6 +25,7 @@ await page.setViewport({ width: 1920, height: 1080})
 const domain = process.env.HH_DOMAIN_NAME || '';
 const name = process.env.HH_TOKEN_NAME || '';
 const value = process.env.HH_TOKEN_VALUE || '';
+const coverLetterText = process.env.COVER_LETTER_TEXT || '.';
 
 await page.setCookie({domain, name, value});
 
@@ -42,18 +43,52 @@ console.log('данные введены');
 
 console.log(removeAreaParam(page.url()));
 
-await page.waitForNavigation();
+await page.waitForNavigation({timeout: 0});
 await page.goto(removeAreaParam(page.url()), {timeout: 0});
 
 await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 
-const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
+let elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
 
-for (const element of elements) {
+for (let i = 0; i < elements.length; i++) {
+    const element = elements[i];
     const box = await element.boundingBox();
     if (box) {
         await element.evaluate(el => el.scrollIntoView());
+
+        // Задержка вместо waitForTimeout
+        await new Promise(r => setTimeout(r, 1000));
+
         await element.click();
+
+        // Задержка для обработки модальных окон или перехода на новую страницу
+        await new Promise(r => setTimeout(r, 1000));
+
+        // Проверка на открытие модального окна с сопроводительным письмом
+        const coverLetterModal = await page.$('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
+        if (coverLetterModal) {
+            await coverLetterModal.type('Ваш текст сопроводительного письма');
+            const submitButton = await page.$('button[data-qa="vacancy-response-submit-popup"]');
+            if (submitButton) {
+                await submitButton.click();
+            }
+        }
+
+        // Проверка на появление окна о релокации
+        const relocationModal = await page.$('button[data-qa="relocation-warning-confirm"]');
+        if (relocationModal) {
+            await relocationModal.click();
+        }
+
+        // Проверка на переход на страницу с тестовым заданием
+        const testPage = await page.$('p[data-qa="employer-asking-for-test"]');
+        if (testPage) {
+            await page.goBack(); // Возвращаемся обратно на страницу с вакансиями
+        }
+
+        // Обновляем элементы на странице после возврата и продолжаем с текущего индекса
+        elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
+        i = i + 1; // Переходим к следующему элементу
     } else {
         console.log('Элемент не видим и не может быть кликнут');
     }
