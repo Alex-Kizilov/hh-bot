@@ -117,7 +117,7 @@ async function processVacancies(page: Page, browser: Browser, processedVacancies
     const domain = process.env.HH_DOMAIN_NAME || '';
     const name = process.env.HH_TOKEN_NAME || '';
     const value = process.env.HH_TOKEN_VALUE || '';
-    const coverLetterText = process.env.COVER_LETTER_TEXT || '.';
+    const coverLetterText = CONFIG.letterCover || '.';
 
     await page.setCookie({ domain, name, value });
     await page.goto('https://hh.ru/', { timeout: 0, waitUntil: 'networkidle2' });
