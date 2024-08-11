@@ -63,11 +63,6 @@ async function processVacancies(page: Page, browser: Browser, processedVacancies
 
             await element.click();
 
-            await Promise.all([
-                await element.evaluate(el => el.scrollIntoView()),
-                await element.click()
-            ]);
-
             const result = await Promise.allSettled([
                 page.waitForSelector('textarea[data-qa="vacancy-response-popup-form-letter-input"], button[data-qa="relocation-warning-confirm"], p[data-qa="employer-asking-for-test"]', { visible: true, timeout: 5000 }),
                 page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 1000 })
