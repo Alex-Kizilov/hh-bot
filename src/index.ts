@@ -121,6 +121,7 @@ async function processVacancies(page: Page, browser: Browser, processedVacancies
     const processedVacancies: Set<string> = new Set();
     let pageNumber = 0;
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
         await checkForError(page, browser);
         const isNeedPageInc = await processVacancies(page, browser, processedVacancies, coverLetterText);
