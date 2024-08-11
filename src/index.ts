@@ -57,6 +57,12 @@ async function processVacancies(page: Page, browser: Browser, processedVacancies
         if (vacancyUrl && !processedVacancies.has(vacancyUrl)) {
             logger.info(`Обрабатывается вакансия: ${vacancyUrl}`);
 
+            await element.evaluate(el => el.scrollIntoView());
+
+            new Promise(r => setTimeout(r, 500));
+
+            await element.click();
+
             await Promise.all([
                 await element.evaluate(el => el.scrollIntoView()),
                 await element.click()
