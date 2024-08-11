@@ -1,7 +1,7 @@
 import puppeteer, {Page, Browser} from 'puppeteer';
 import dotenv from 'dotenv';
 import winston from 'winston';
-import { CONFIG } from './config';
+import { CONFIG } from './config.js';
 
 dotenv.config();
 
