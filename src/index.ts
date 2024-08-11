@@ -1,6 +1,7 @@
 import puppeteer, {Page, Browser} from 'puppeteer';
 import dotenv from 'dotenv';
 import winston from 'winston';
+import { CONFIG } from './config';
 
 dotenv.config();
 
@@ -23,6 +24,12 @@ function removeAreaParam(url: string): string {
     const parsedUrl = new URL(url);
     parsedUrl.searchParams.delete('area');
     return parsedUrl.toString();
+}
+
+function addExpParam(url: string): string {
+    const parsedUrl = new URL(url)
+    parsedUrl.searchParams.set('expeience', CONFIG.filters.experience)
+    return parsedUrl.toString()
 }
 
 function addPageParam(url: string, pageNumber: number): string {
@@ -116,6 +123,7 @@ async function processVacancies(page: Page, browser: Browser, processedVacancies
 
     await page.waitForNavigation({ timeout: 0, waitUntil: 'networkidle2' });
     await page.goto(removeAreaParam(page.url()), { timeout: 0, waitUntil: 'networkidle2' });
+    await page.goto(addExpParam(page.url()), {timeout: 0, waitUntil: 'networkidle2'})
     await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 
     const processedVacancies: Set<string> = new Set();

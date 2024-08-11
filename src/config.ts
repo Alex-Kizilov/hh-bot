@@ -1,6 +1,6 @@
 enum Experience {
     jun = "between1And3",
-    mid = "between2And3",
+    mid = "between3And6",
     sen = "moreThan6"
 }
 
