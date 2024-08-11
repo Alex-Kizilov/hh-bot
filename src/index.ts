@@ -1,7 +1,9 @@
-import puppeteer, {Page, Browser} from 'puppeteer';
+import puppeteer, { Page, Browser } from 'puppeteer';
 import dotenv from 'dotenv';
 import winston from 'winston';
 import { CONFIG } from './config.js';
+import * as XLSX from 'xlsx';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -20,6 +22,45 @@ const logger = winston.createLogger({
     ]
 });
 
+// Пути к файлу
+const excelFilePath = 'vacancies.xlsx';
+const tempFilePath = 'vacancies_temp.xlsx';
+
+// Создание нового Excel файла или загрузка существующего
+let workbook: XLSX.WorkBook;
+let worksheetData: unknown[];
+
+// Функция для создания нового файла Excel
+function initializeWorkbook() {
+    if (fs.existsSync(excelFilePath)) {
+        workbook = XLSX.readFile(excelFilePath);
+        const worksheet = workbook.Sheets['Vacancies'];
+        worksheetData = worksheet ? XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[] : [];
+    } else {
+        workbook = XLSX.utils.book_new();
+        worksheetData = [['Заголовок вакансии', 'Ссылка', 'Требуемый опыт']];
+    }
+}
+
+// Инициализация
+initializeWorkbook();
+
+function saveToExcel() {
+    try {
+        const newWorksheet = XLSX.utils.aoa_to_sheet(worksheetData as unknown[][]);
+        if (workbook.Sheets['Vacancies']) {
+            workbook.Sheets['Vacancies'] = newWorksheet;
+        } else {
+            XLSX.utils.book_append_sheet(workbook, newWorksheet, 'Vacancies');
+        }
+        XLSX.writeFile(workbook, tempFilePath);
+        fs.renameSync(tempFilePath, excelFilePath);
+        logger.info('Данные успешно сохранены в файл Excel.');
+    } catch (error) {
+        logger.error('Ошибка при сохранении данных в Excel:', error);
+    }
+}
+
 function removeAreaParam(url: string): string {
     const parsedUrl = new URL(url);
     parsedUrl.searchParams.delete('area');
@@ -27,9 +68,9 @@ function removeAreaParam(url: string): string {
 }
 
 function addExpParam(url: string): string {
-    const parsedUrl = new URL(url)
-    parsedUrl.searchParams.set('experience', CONFIG.filters.experience)
-    return parsedUrl.toString()
+    const parsedUrl = new URL(url);
+    parsedUrl.searchParams.set('experience', CONFIG.filters.experience);
+    return parsedUrl.toString();
 }
 
 function addPageParam(url: string, pageNumber: number): string {
@@ -43,69 +84,85 @@ async function checkForError(page: Page, browser: Browser): Promise<void> {
     if (errorNotification) {
         logger.error('Обнаружена ошибка: диалоговое окно с атрибутом data-qa="bloko-notification" и классом bloko-notification_error');
         await browser.close();
+        saveToExcel(); // Сохраняем данные перед выходом
         process.exit(1);
     }
 }
 
 async function processVacancies(page: Page, browser: Browser, processedVacancies: Set<string>, coverLetterText: string): Promise<boolean> {
-    const elements = await page.$$('a[data-qa="vacancy-serp__vacancy_response"]');
-    logger.info(`Обрабатывается ${elements.length} вакансий`);
+    const vacancyElements = await page.$$('div[data-qa="vacancy-serp__vacancy vacancy-serp__vacancy_standard_plus"], div[data-qa="vacancy-serp__vacancy vacancy-serp__vacancy_standard"]');
+    logger.info(`Обрабатывается ${vacancyElements.length} вакансий`);
 
-    for (const element of elements) {
-        const vacancyUrl = await element.evaluate(el => el.getAttribute('href'));
+    let isNeedPageInc = false;
 
-        if (vacancyUrl && !processedVacancies.has(vacancyUrl)) {
-            logger.info(`Обрабатывается вакансия: ${vacancyUrl}`);
+    for (const element of vacancyElements) {
+        const titleElement = await element.$('span[data-qa="serp-item__title"]');
+        const experienceElement = await element.$('span[data-qa="vacancy-serp__vacancy-work-experience"]');
+        const buttonElement = await element.$('a[data-qa="vacancy-serp__vacancy_response"]');
 
-            await element.evaluate(el => el.scrollIntoView());
-            await element.click();
+        if (buttonElement) {
+            const vacancyUrl = await buttonElement.evaluate(el => el.getAttribute('href'));
 
-            const result = await Promise.allSettled([
-                page.waitForSelector('textarea[data-qa="vacancy-response-popup-form-letter-input"], button[data-qa="relocation-warning-confirm"], p[data-qa="employer-asking-for-test"]', { visible: true, timeout: 5000 }),
-                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 1000 })
-            ]);
+            if (vacancyUrl && !processedVacancies.has(vacancyUrl)) {
+                const title = titleElement ? await titleElement.evaluate(el => el.innerText) : 'Без заголовка';
+                const experience = experienceElement ? await experienceElement.evaluate(el => el.innerText) : 'Не указан';
 
-            if (result === null) {
-                logger.info('Переход на другую страницу или отсутствие модальных окон');
-                continue; // Переходим к следующей вакансии
-            }
+                logger.info(`Обрабатывается вакансия: ${title} (${experience}) - ${vacancyUrl}`);
 
-            const coverLetterModal = await page.$('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
-            if (coverLetterModal) {
-                await coverLetterModal.type(coverLetterText);
-                const submitButton = await page.$('button[data-qa="vacancy-response-submit-popup"]');
-                if (submitButton) {
-                    await submitButton.click();
-                    logger.info(`Отправлено сопроводительное письмо на вакансию: ${vacancyUrl}`);
+                // Добавляем данные в таблицу Excel
+                worksheetData.push([title, vacancyUrl, experience]);
+
+                await buttonElement.evaluate(el => el.scrollIntoView());
+                await buttonElement.click();
+
+                const result = await Promise.allSettled([
+                    page.waitForSelector('textarea[data-qa="vacancy-response-popup-form-letter-input"], button[data-qa="relocation-warning-confirm"], p[data-qa="employer-asking-for-test"]', { visible: true, timeout: 5000 }),
+                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 1000 })
+                ]);
+
+                if (result === null) {
+                    logger.info('Переход на другую страницу или отсутствие модальных окон');
+                    continue; // Переходим к следующей вакансии
                 }
-            }
 
-            const relocationModal = await page.$('button[data-qa="relocation-warning-confirm"]');
-            if (relocationModal) {
-                await relocationModal.click();
-                logger.info(`Подтверждено предупреждение о переезде на вакансии: ${vacancyUrl}`);
-            }
+                const coverLetterModal = await page.$('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
+                if (coverLetterModal) {
+                    await coverLetterModal.type(coverLetterText);
+                    const submitButton = await page.$('button[data-qa="vacancy-response-submit-popup"]');
+                    if (submitButton) {
+                        await submitButton.click();
+                        logger.info(`Отправлено сопроводительное письмо на вакансию: ${vacancyUrl}`);
+                    }
+                }
 
-            const testPage = await page.$('p[data-qa="employer-asking-for-test"]');
-            if (testPage) {
-                logger.info(`Обнаружена страница с тестом. Возвращаемся назад и перезагружаем страницу`);
-                await page.goBack({ timeout: 0, waitUntil: 'networkidle2' });
+                const relocationModal = await page.$('button[data-qa="relocation-warning-confirm"]');
+                if (relocationModal) {
+                    await relocationModal.click();
+                    logger.info(`Подтверждено предупреждение о переезде на вакансии: ${vacancyUrl}`);
+                }
+
+                const testPage = await page.$('p[data-qa="employer-asking-for-test"]');
+                if (testPage) {
+                    logger.info(`Обнаружена страница с тестом. Возвращаемся назад и перезагружаем страницу`);
+                    await page.goBack({ timeout: 0, waitUntil: 'networkidle2' });
+                    processedVacancies.add(vacancyUrl);
+
+                    isNeedPageInc = true;
+                    continue;
+                }
+
                 processedVacancies.add(vacancyUrl);
-
-                return false;
+            } else {
+                logger.warn('Элемент не видим и не может быть кликнут');
             }
-
-            processedVacancies.add(vacancyUrl);
-        } else {
-            logger.warn('Элемент не видим и не может быть кликнут');
         }
     }
 
-    return false;
+    return isNeedPageInc;
 }
 
 (async () => {
-    const browser = await puppeteer.launch({devtools: true});
+    const browser = await puppeteer.launch({ devtools: true });
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
 
@@ -123,7 +180,7 @@ async function processVacancies(page: Page, browser: Browser, processedVacancies
 
     await page.waitForNavigation({ timeout: 0, waitUntil: 'networkidle2' });
     await page.goto(removeAreaParam(page.url()), { timeout: 0, waitUntil: 'networkidle2' });
-    await page.goto(addExpParam(page.url()), {timeout: 0, waitUntil: 'networkidle2'})
+    await page.goto(addExpParam(page.url()), { timeout: 0, waitUntil: 'networkidle2' });
     await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
 
     const processedVacancies: Set<string> = new Set();
@@ -143,7 +200,12 @@ async function processVacancies(page: Page, browser: Browser, processedVacancies
         logger.info(`Переход к странице ${pageNumber}`);
         await page.goto(addPageParam(removeAreaParam(page.url()), pageNumber), { timeout: 0, waitUntil: 'networkidle2' });
         await page.waitForSelector('a[data-qa="vacancy-serp__vacancy_response"]');
+
+        // Частичное сохранение данных
+        saveToExcel();
     }
 
+    // Запись данных в файл Excel по завершению
+    saveToExcel();
     await browser.close();
 })();
