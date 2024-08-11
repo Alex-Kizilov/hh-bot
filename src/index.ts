@@ -28,7 +28,7 @@ function removeAreaParam(url: string): string {
 
 function addExpParam(url: string): string {
     const parsedUrl = new URL(url)
-    parsedUrl.searchParams.set('expeience', CONFIG.filters.experience)
+    parsedUrl.searchParams.set('experience', CONFIG.filters.experience)
     return parsedUrl.toString()
 }
 
@@ -118,7 +118,7 @@ async function processVacancies(page: Page, browser: Browser, processedVacancies
     await page.goto('https://hh.ru/', { timeout: 0, waitUntil: 'networkidle2' });
     await page.waitForSelector('input[id=a11y-search-input]');
     await page.focus('input[id=a11y-search-input]');
-    await page.keyboard.type('React');
+    await page.keyboard.type(CONFIG.jobTitle);
     await page.keyboard.press('Enter');
 
     await page.waitForNavigation({ timeout: 0, waitUntil: 'networkidle2' });
