@@ -59,9 +59,11 @@ async function processVacancies(page: Page, browser: Browser, processedVacancies
 
             await element.evaluate(el => el.scrollIntoView());
 
-            new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 500));
 
             await element.click();
+
+            await new Promise(r => setTimeout(r, 500));
 
             const result = await Promise.allSettled([
                 page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 1000 }),
